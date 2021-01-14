@@ -19,22 +19,6 @@ fn main() {
     }
 }
 
-fn cost(haystack: &[&str], needle: &[&str], i: usize, la: usize, lb: usize) -> usize {
-    if lb == 0 { la }
-    else if la == 0 { lb }
-    else if haystack[i + la - 1] == needle[lb - 1] {
-        cost(haystack, needle, i, la - 1, lb - 1)
-    } else {
-        1 + cmp::min(
-            cmp::min(
-                cost(haystack, needle, i, la - 1, lb),
-                cost(haystack, needle, i, la, lb - 1)
-            ),
-            cost(haystack, needle, i, la - 1, lb - 1)
-        )
-    }
-}
-
 fn closest_substring(haystack: &str, needle: &str) -> (usize, usize) {
     // We're looking for
     //      min_{i, j} f(i, j, |needle|)
@@ -47,11 +31,41 @@ fn closest_substring(haystack: &str, needle: &str) -> (usize, usize) {
 
     let haystack = UnicodeSegmentation::graphemes(haystack, true).collect::<Vec<&str>>();
     let needle = UnicodeSegmentation::graphemes(needle, true).collect::<Vec<&str>>();
+
+    let mut memo = vec![vec![vec![usize::MAX;needle.len()+1];haystack.len()+1];haystack.len()];
+
+    for i in 0..haystack.len() {
+        for la in 0..haystack.len()+1 {
+            memo[i][la][0] = la;
+        }
+        for lb in 0..needle.len()+1 {
+            memo[i][0][lb] = lb;
+        }
+    }
+
+    for i in 0..haystack.len() {
+        for la in 1..haystack.len()-i+1 {
+            for lb in 1..needle.len()+1 {
+                if haystack[i + la - 1] == needle[lb - 1] {
+                    memo[i][la][lb] = memo[i][la-1][lb-1];
+                } else {
+                    memo[i][la][lb] = 1 + cmp::min(
+                        cmp::min(
+                            memo[i][la-1][lb],
+                            memo[i][la][lb-1]
+                        ),
+                        memo[i][la-1][lb-1]
+                    );
+                }
+            }
+        }
+    }
+
     let mut best_cost = usize::MAX;
-    let mut best_pair = (0, 0);
-    for i in 0..haystack.len()-1 {
-        for j in i+1..haystack.len() {
-            let c = cost(&haystack, &needle, i, j-i, needle.len());
+    let mut best_pair = (usize::MAX, usize::MAX);
+    for i in 0..haystack.len() {
+        for j in i+1..haystack.len()+1 {
+            let c = memo[i][j-i][needle.len()];
             if c < best_cost {
                 best_cost = c;
                 best_pair = (i, j);
@@ -68,6 +82,7 @@ mod tests {
     #[test]
     fn test_closest_substring() {
         let pair = closest_substring("Hello warld!", "world");
+        println!("{:?}", pair);
         assert!(pair == (6, 11));
     }
 }
